@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from ..database import Base
 from ..utils.id_generator import generate_uuid
 
+
 class HabitCategory(Base):
     __tablename__ = "habit_categories"
 

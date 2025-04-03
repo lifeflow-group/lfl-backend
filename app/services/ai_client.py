@@ -10,6 +10,7 @@ import google.generativeai as genai
 from google.generativeai import GenerativeModel
 from dotenv import load_dotenv
 
+from app.schemas.habit_analysis_input_schema import HabitAnalysisInput
 from app.schemas.habit_schema import HabitResponse
 from app.schemas.performance_metric_schema import PerformanceMetricResponse
 from app.schemas.suggestion_schema import SuggestionResponse
@@ -22,14 +23,15 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 executor = ThreadPoolExecutor()
 
+
 async def async_generate_content(prompt, model: GenerativeModel):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, model.generate_content, prompt)
 
+
 async def get_ai_suggestions(
-    habits: List[HabitResponse],
-    metrics: List[PerformanceMetricResponse],
-    chunk_size: int = 300 # Average: 1,000,000 / 15 per minute ≈ 66,666 tokens per request 
+    habitAnalysisInput: HabitAnalysisInput,
+    chunk_size: int = 300,  # Average: 1,000,000 / 15 per minute ≈ 66,666 tokens per request
 ) -> List[SuggestionResponse]:
     """
     Calls Gemini AI to generate suggestions based on habits and metrics.
@@ -41,20 +43,19 @@ async def get_ai_suggestions(
 
     all_suggestions = []
     model = genai.GenerativeModel(GEMINI_MODEL)
+    habits = habitAnalysisInput.habits
 
     # 1. Handle chunk splitting
     for i in range(0, len(habits), chunk_size):
-        chunk_habits = habits[i:i + chunk_size]
-        chunk_metrics = [m for m in metrics if m.habit_id in [h.id for h in chunk_habits]]
-        
-        prompt = _create_suggestion_prompt(chunk_habits, chunk_metrics)
-        
+
+        prompt = _create_suggestion_prompt(habitAnalysisInput, i, chunk_size)
+
         # Await for the asynchronous function
         response = await async_generate_content(prompt, model)
-        
+
         chunk_suggestions = _parse_ai_response(response.text)
         all_suggestions.extend(chunk_suggestions)
-        
+
         print(f"Processing habit chunks: {i} - {i + chunk_size}")
         time.sleep(2)
 
@@ -63,11 +64,11 @@ async def get_ai_suggestions(
         final_suggestions = []
         model1 = genai.GenerativeModel(GEMINI_MODEL)
         for i in range(0, len(all_suggestions), chunk_size):
-            chunk_suggestions = all_suggestions[i:i + chunk_size]
+            chunk_suggestions = all_suggestions[i : i + chunk_size]
             # Await for the asynchronous function
             prompt = _refine_suggestions_prompt(chunk_suggestions)
             response = await async_generate_content(prompt, model1)
-            refined_chunk= _parse_ai_response(response.text)
+            refined_chunk = _parse_ai_response(response.text)
             final_suggestions.extend(refined_chunk)
             print(f"Processing suggestion chunks: {i} - {i + chunk_size}")
             time.sleep(2)
@@ -76,62 +77,68 @@ async def get_ai_suggestions(
         final_suggestions = all_suggestions
 
     return final_suggestions
-    # return all_suggestions
 
 
-def _create_suggestion_prompt(habits: List[HabitResponse], metrics: List[PerformanceMetricResponse]) -> str:
-    habits_with_metrics = []
-    for habit in habits:
-        metric = next((m for m in metrics if m.habit_id == habit.id), None)
-        if metric:
-            habits_with_metrics.append({
-                "id": habit.id,
-                "name": habit.name,
-                "category": habit.category.label if habit.category else "",
-                "repeat_frequency": habit.repeat_frequency.value if habit.repeat_frequency else None,
-                "reminder_enabled": habit.reminder_enabled,
-                "tracking_type": habit.tracking_type.value if habit.tracking_type else None,
-                "quantity": habit.quantity,
-                "unit": habit.unit,
-                "progress": habit.progress,
-                "completed": habit.completed,
-                "start_date": habit.start_date.isoformat() if habit.start_date else None,
+def _create_suggestion_prompt(
+    habitAnalysisInput: HabitAnalysisInput,
+    i: int,
+    chunk_size: int,
+) -> str:
+    chunk_habits = habitAnalysisInput.habits[i : i + chunk_size]
 
-                # Performance metrics
-                "completion_rate": metric.completion_rate,
-                "average_progress": metric.average_progress,
-                "total_progress": metric.total_progress,
-                "metric_description": metric.description,
-                "metric_start_date": metric.start_date.isoformat() if metric.start_date else None,
-                "metric_end_date": metric.end_date.isoformat() if metric.end_date else None,
-            })
+    # Convert datetime to string before serialization
+    def convert_datetime(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        raise TypeError("Type not serializable")
 
     prompt = f"""
         You are an expert AI habit coach. Your task is to analyze the user's current habits and performance metrics, then generate personalized, actionable suggestions to help them improve their habits.
 
+        ### Analysis Period:
+        - Start Date: {habitAnalysisInput.start_date.strftime('%Y-%m-%d')}
+        - End Date: {habitAnalysisInput.end_date.strftime('%Y-%m-%d')}
+
         ### Data:
         Here is the user's current habit data and performance metrics in JSON format:
-        {json.dumps(habits_with_metrics, indent=2)}
+        {json.dumps([habit.model_dump() for habit in chunk_habits], indent=2, default=convert_datetime)}
 
         Each item in the list has the following fields:
-        - id (string): Unique identifier for the habit.
-        - name (string): Name of the habit.
-        - category (string): The category this habit belongs to (e.g., Health, Work).
-        - repeat_frequency (string): How often the habit repeats (daily, weekly, monthly).
-        - reminder_enabled (boolean): Whether the habit has reminders enabled.
-        - tracking_type (string): Whether the habit is tracked by completion (complete/incomplete) or progress (amount-based).
-        - quantity (integer): The target quantity for progress-based habits (e.g., 8 glasses of water).
-        - unit (string): The unit for the quantity (e.g., cups, minutes).
-        - progress (integer): Current progress made toward completing the habit.
-        - completed (boolean): Whether the habit was completed today.
-        - start_date (ISO string): When the habit was started.
-          // Performance metrics:
-        - completion_rate (float): How often the habit is completed (0.0 - 1.0).
-        - average_progress (float): Average progress made over time.
-        - total_progress (float): Total amount of progress made.
-        - metric_description (string): Optional description or summary of the user's performance.
-        - metric_start_date (ISO string): The start date of the period being measured.
-        - metric_end_date (ISO string): The end date of the period being measured.
+        - **id** (string): Unique identifier for the habit.
+        - **name** (string): Name of the habit.
+        - **category** (HabitCategory): The category this habit belongs to, providing context for its purpose and relevance.  
+            Each category has the following fields:  
+            + **id** (string): Unique identifier for the habit category.  
+            + **label** (string): The display name of the category (e.g., "Health", "Work", "Fitness").  
+            + **icon_path** (string, optional): Path to the icon representing the category.
+        - **tracking_type** (string): Whether the habit is tracked by `COMPLETE` (done/not done) or `PROGRESS` (measurable value like steps, minutes, etc.).
+        
+        - **target_value** (integer, optional): The goal value for `PROGRESS`-based habits (e.g., 8 glasses of water, 30 minutes of exercise).
+        - **unit** (string, optional): The unit for `target_value` (e.g., "cups", "minutes").
+        
+        - **repeat_frequency** (string, optional): The recurrence rule for the habit (e.g., "DAILY", "WEEKLY", "MONTHLY").
+        - **start_date** (ISO string): The date when the habit was first created.
+        - **until_date** (ISO string, optional): The date when the habit tracking should end (if applicable).
+        
+        - **exceptions** (list[HabitExceptionBase], optional):  
+        A list of exceptions affecting this habit. Exceptions can indicate skipped days, modified tracking values, or changes in reminders.  
+        Each exception has the following fields:  
+            + **habit_series_id** (string): Identifier linking this exception to a recurring habit series.  
+            + **date** (ISO string): The specific date of the exception.  
+            + **is_skipped** (boolean, default=False): Whether the habit was skipped on this date.  
+            + **reminder_enabled** (boolean, default=False): Whether reminders were active on this date.  
+            + **target_value** (integer, optional): Updated target value for progress-based habits on this date.  
+            + **current_value** (integer, optional): The recorded value for progress-based habits on this date.  
+            + **is_completed** (boolean, optional): Whether the habit was completed on this date.
+        
+        - **performance_metric: Performance Metrics:**
+            + **completion_rate** (float, optional): Percentage of time the habit was completed (0.0 - 1.0).
+            + **average_progress** (float, optional): Average value recorded for `PROGRESS`-based habits.
+            + **total_progress** (float, optional): Total accumulated progress for `PROGRESS`-based habits.
+            + **metric_description** (string, optional): A summary of the user's habit performance.
+            + **metric_start_date** (ISO string, optional): The start date of the performance analysis period.
+            + **metric_end_date** (ISO string, optional): The end date of the performance analysis period.
+
 
         ### Instructions:
         Based on the data above, generate **5 personalized suggestions**. Each suggestion should belong to **one** of the following categories:
@@ -163,22 +170,22 @@ def _create_suggestion_prompt(habits: List[HabitResponse], metrics: List[Perform
         Return suggestions in JSON format like this example:
         [
             {{
-                "icon": "💧",   // Emoji representing the suggestion (related to the habit)
                 "title": "Stay Hydrated Regularly", // Motivating and clear title
                 "description": "Try setting reminders to drink water every 2 hours. You can place a water bottle on your desk as a visual cue.", // String: A concise action-oriented suggestion, followed by an explanation or two of why this action is useful or beneficial.
-                "habit_data": {{
-                    "id": "habit_001",                      // Unique habit ID (string)
+                "habitData": {{
                     "name": "Drink Water",                  // Name of the habit (string)
-                    "user_id": "user_001",                  // The user associated with the habit (string)
-                    "category_id": "health",                // The category_id field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
-                    "start_date": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format
-                    "repeat_frequency": "DAILY",            // Repeat frequency (DAILY, WEEKLY, MONTHLY)
-                    "reminder_enabled": true,               // Boolean: whether reminders are enabled
-                    "tracking_type": "COMPLETE",            // Tracking type (COMPLETE, PROGRESS)
-                    "quantity": 8,                          // Quantity target (integer, if Tracking type is PROGRESS)
-                    "unit": "cups",                         // Unit of measurement (string, if if Tracking type is PROGRESS)
-                    "progress": 0,                          // Current progress (integer, if Tracking type is PROGRESS)
-                    "completed": false                      // Boolean: whether the habit was completed today (if Tracking type is COMPLETE)
+                    "category": {{                          // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
+                        "id": "health",                         // ID of the category
+                        "label": "Health",                      // Name of the category
+                        "iconPath": "assets/icons/health.png"   // Path to the category icon
+                    }},
+                    "repeatFrequency": "daily"             // How often the habit repeats (daily, weekly, monthly)
+                    "startDate": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format
+                    "untilDate": "2024-06-01T00:00:00Z",   // End date, or null if it continues indefinitely
+                    "reminderEnabled": true,               // Boolean: whether reminders are enabled
+                    "trackingType": "complete",            // Tracking type (complete, progress)
+                    "targetValue": 8,                      // target value (integer, if Tracking type is progress)
+                    "unit": "cups",                         // Unit of measurement (string, if Tracking type is progress)
                 }},
             }},
         ]
@@ -205,10 +212,10 @@ def _parse_ai_response(response_text: str) -> List[SuggestionResponse]:
                 icon=item.get("icon", "💡"),
                 title=item.get("title", "Habit Suggestion"),
                 description=item.get("description", ""),
-                habit_data=item.get("habit_data"),
+                habit_data=item.get("habitData"),
                 created_at=datetime.now(),
                 is_viewed=False,
-                is_implemented=False
+                is_implemented=False,
             )
             suggestions.append(suggestion)
 
@@ -217,13 +224,21 @@ def _parse_ai_response(response_text: str) -> List[SuggestionResponse]:
     except json.JSONDecodeError:
         return []
 
-def _refine_suggestions_prompt(suggestions: List[SuggestionResponse], top_n: int = 5) -> str:
+
+def _refine_suggestions_prompt(
+    suggestions: List[SuggestionResponse], top_n: int = 5
+) -> str:
     """
     Sends a final prompt to Gemini to consolidate and refine suggestions into top N.
     """
     # Convert SuggestionResponse objects to dict
-    suggestions_dicts = [s.model_dump() for s in suggestions]
-    
+    suggestions_dicts = [s.model_dump(by_alias=True) for s in suggestions]
+
+    print(
+        "Refining suggestions...",
+        {json.dumps(suggestions_dicts, indent=2, default=str)},
+    )
+
     prompt = f"""
         You are an expert AI habit coach. Below is a list of habit suggestions already generated.
 
@@ -238,33 +253,30 @@ def _refine_suggestions_prompt(suggestions: List[SuggestionResponse], top_n: int
         ### VERY IMPORTANT:
         - DO NOT remove or nullify any fields.
         - KEEP every field in the original suggestion objects exactly as they are, including:
-            - `habit_data` (even if it contains nested objects)
-            - `created_at`
-            - `is_viewed`
-            - `is_implemented`
+            - `habitData` (even if it contains nested objects)
 
         ### Output format:
         Return ONLY a **JSON array** of full suggestion objects, **without changing any field names**.  
-        Keep the field `habit_data` as it is, and do not replace it with anything else.
+        Keep the field `habitData` as it is, and do not replace it with anything else.
         For example:
         [
             {{
-                "icon": "💧",   // Emoji representing the suggestion (related to the habit)
                 "title": "Stay Hydrated Regularly", // Motivating and clear title
                 "description": "Try setting reminders to drink water every 2 hours. You can place a water bottle on your desk as a visual cue.", // String: A concise action-oriented suggestion, followed by an explanation or two of why this action is useful or beneficial.
-                "habit_data": {{
-                    "id": "habit_001",                      // Unique habit ID (string)
+                "habitData": {{
                     "name": "Drink Water",                  // Name of the habit (string)
-                    "user_id": "user_001",                  // The user associated with the habit (string)
-                    "category_id": "health",                // The category_id field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
-                    "start_date": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format
-                    "repeat_frequency": "DAILY",            // Repeat frequency (DAILY, WEEKLY, MONTHLY)
-                    "reminder_enabled": true,               // Boolean: whether reminders are enabled
-                    "tracking_type": "COMPLETE",            // Tracking type (COMPLETE, PROGRESS)
-                    "quantity": 8,                          // Quantity target (integer, if Tracking type is PROGRESS)
-                    "unit": "cups",                         // Unit of measurement (string, if if Tracking type is PROGRESS)
-                    "progress": 0,                          // Current progress (integer, if Tracking type is PROGRESS)
-                    "completed": false                      // Boolean: whether the habit was completed today (if Tracking type is COMPLETE)
+                    "category": {{                          // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
+                        "id": "health",                         // ID of the category
+                        "label": "Health",                      // Name of the category
+                        "iconPath": "assets/icons/health.png"   // Path to the category icon
+                    }},
+                    "repeatFrequency": "daily"             // How often the habit repeats (daily, weekly, monthly)
+                    "startDate": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format
+                    "untilDate": "2024-06-01T00:00:00Z",   // End date, or null if it continues indefinitely
+                    "reminderEnabled": true,               // Boolean: whether reminders are enabled
+                    "trackingType": "complete",            // Tracking type (complete, progress)
+                    "targetValue": 8,                      // target value (integer, if Tracking type is progress)
+                    "unit": "cups",                         // Unit of measurement (string, if Tracking type is progress)
                 }},
             }},
         ]

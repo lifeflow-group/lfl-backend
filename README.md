@@ -78,6 +78,8 @@ lfl_backend/
    pip install -r requirements.txt
    ```
 
+   `pip freeze > requirements.txt` generates a list of installed Python packages and their versions for dependency management.
+
 4. Copy the `.env.example` file and rename it to `.env`.
    ```sh
    cp .env.example .env
@@ -142,6 +144,17 @@ b Run the drop_database.py script to drop all tables in the current database sch
 2. The API will be available at `http://localhost:8000`
 3. Access the Swagger documentation at `http://localhost:8000/docs`
 
+## Mobile Application API Connection
+
+To connect the mobile application to the backend API, use the following base URL:
+
+```
+ipconfig
+```
+
+IPv4 Address. . . . . . . . . . . : 192.168.1.111
+http://192.168.1.111:8000
+
 ## API Documentation
 
 ### Endpoints
@@ -163,4 +176,3 @@ User id Example: hoan
 - Database connection errors: Verify PostgreSQL is running and credentials are correct
 - Gemini API errors: Check API key and quota limits
 - Missing dependencies: Ensure all packages from requirements.txt are installed
-
