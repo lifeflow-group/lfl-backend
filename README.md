@@ -78,6 +78,8 @@ lfl_backend/
    pip install -r requirements.txt
    ```
 
+   `pip freeze > requirements.txt` generates a list of installed Python packages and their versions for dependency management.
+
 4. Copy the `.env.example` file and rename it to `.env`.
    ```sh
    cp .env.example .env
@@ -133,6 +135,7 @@ b Run the drop_database.py script to drop all tables in the current database sch
    python scripts/drop_database.py --admin-user postgres --admin-password your_password --drop-type tables
    ```
 
+## Local Only
 ### Running the Application
 1. Start the FastAPI server:
    ```sh
@@ -141,6 +144,26 @@ b Run the drop_database.py script to drop all tables in the current database sch
 
 2. The API will be available at `http://localhost:8000`
 3. Access the Swagger documentation at `http://localhost:8000/docs`
+
+### Mobile Application API Integration
+
+To integrate the mobile application with the backend API, configure the base URL as follows:
+
+1. Determine your local IP address:
+   ```sh
+   ipconfig
+   ```
+   Example output:
+   ```
+   IPv4 Address. . . . . . . . . . . : 192.168.1.111
+   ```
+
+2. In your Flutter application, set the `baseUrl` to point to the backend server:
+   ```dart
+   const baseUrl = "http://192.168.1.111:8000";
+   ```
+
+Ensure that both the mobile application and the backend server are running on the same network for successful communication.
 
 ## API Documentation
 
@@ -157,10 +180,24 @@ Returns personalized AI-generated suggestions for a user based on their habits.
 
 User id Example: hoan
 
+## lfl-backend - Web Service - Render
+
+### Start Command
+```sh
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+### Required Environment Variables
+Ensure the following environment variables are configured in the Render service:
+
+- `DATABASE_URL`: Connection string for the PostgreSQL database.
+- `GEMINI_API_KEY`: API key for accessing the Gemini service.
+- `GEMINI_MODEL`: Model identifier for Gemini AI.
+- `LOG_LEVEL`: Logging level for the application (e.g., `info`, `debug`, `error`).
+
 ## Troubleshooting
 
 ### Common Issues
 - Database connection errors: Verify PostgreSQL is running and credentials are correct
 - Gemini API errors: Check API key and quota limits
 - Missing dependencies: Ensure all packages from requirements.txt are installed
-

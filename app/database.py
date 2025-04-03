@@ -1,10 +1,18 @@
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "postgresql://lfl_hoan:lfl_123456@localhost:5432/lfl_db"
- 
+# Load .env file
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("❌ ERROR: DATABASE_URL is not set! Please check your .env file.")
+
 engine = create_engine(DATABASE_URL, echo=True)
- 
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
- 
+
 Base = declarative_base()
