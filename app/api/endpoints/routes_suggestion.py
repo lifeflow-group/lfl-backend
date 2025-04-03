@@ -7,7 +7,6 @@ from app.schemas.suggestion_schema import SuggestionResponse
 
 from app.services.habit_service import calculate_performance_metrics
 from app.services.suggestion_service import (
-    generate_and_save_suggestions,
     generate_suggestions,
     get_suggestion_by_user,
 )
