@@ -16,16 +16,22 @@ from app.models.habit_category import HabitCategory
 from sqlalchemy.orm import sessionmaker
 
 # DATABASE_URL: retrieved from env or settings.py if available, hardcoded for demo
-DATABASE_URL = "postgresql://lfl_hoan:lfl_123456@localhost:5432/lfl_db"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Setup PostgreSQL database and initialize tables.')
-    parser.add_argument('--admin-user', required=True, help='PostgreSQL admin username')
-    parser.add_argument('--admin-password', required=True, help='PostgreSQL admin password')
-    parser.add_argument('--host', default='localhost', help='Database host (default: localhost)')
-    parser.add_argument('--port', default='5432', help='Database port (default: 5432)')
+    parser = argparse.ArgumentParser(
+        description="Setup PostgreSQL database and initialize tables."
+    )
+    parser.add_argument("--admin-user", required=True, help="PostgreSQL admin username")
+    parser.add_argument(
+        "--admin-password", required=True, help="PostgreSQL admin password"
+    )
+    parser.add_argument(
+        "--host", default="localhost", help="Database host (default: localhost)"
+    )
+    parser.add_argument("--port", default="5432", help="Database port (default: 5432)")
     return parser.parse_args()
 
 
@@ -44,7 +50,7 @@ def setup_database_and_user(admin_user, admin_password, host, port):
             port=port,
             user=admin_user,
             password=admin_password,
-            database="postgres"  # Connect to default postgres database
+            database="postgres",  # Connect to default postgres database
         )
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
@@ -91,41 +97,38 @@ def init_db():
 def add_sample_data():
     """Add sample user data to the database."""
     print("📊 Adding sample data to the database...")
-    
+
     try:
         # Create a session
         Session = sessionmaker(bind=engine)
         session = Session()
-        
+
         # Check if users already exist
         if session.query(User).count() > 0:
             print("ℹ️  Sample user data already exists. Skipping.")
         else:
             # Sample users
             users = [
-                User(
-                    id="hoan",
-                    name="Nguyen Van Hoan"
-                ),
+                User(id="hoan", name="Nguyen Van Hoan"),
                 User(
                     id="jane_smith",
                     name="Jane Smith",
                 ),
             ]
-            
+
             # Add users to the session
             for user in users:
                 session.add(user)
-            
+
             # Commit the changes
             session.commit()
             print(f"✅ Successfully added {len(users)} sample users.")
-        
+
         # Add sample categories
         add_sample_categories(session)
-        
+
         session.close()
-        
+
     except Exception as e:
         print(f"❌ Error when adding sample data: {e}")
 
@@ -139,57 +142,33 @@ def add_sample_categories(session):
 
     # Sample categories
     categories = [
-        HabitCategory(
-            id="health",
-            label="Health",
-            icon_path="assets/icons/health.png"
-        ),
-        HabitCategory(
-            id="work",
-            label="Work",
-            icon_path="assets/icons/work.png"
-        ),
+        HabitCategory(id="health", label="Health", icon_path="assets/icons/health.png"),
+        HabitCategory(id="work", label="Work", icon_path="assets/icons/work.png"),
         HabitCategory(
             id="personal_growth",
             label="Personal Growth",
-            icon_path="assets/icons/personal_growth.png"
+            icon_path="assets/icons/personal_growth.png",
+        ),
+        HabitCategory(id="hobby", label="Hobby", icon_path="assets/icons/hobby.png"),
+        HabitCategory(
+            id="fitness", label="Fitness", icon_path="assets/icons/fitness.png"
         ),
         HabitCategory(
-            id="hobby",
-            label="Hobby",
-            icon_path="assets/icons/hobby.png"
+            id="education", label="Education", icon_path="assets/icons/education.png"
         ),
         HabitCategory(
-            id="fitness",
-            label="Fitness",
-            icon_path="assets/icons/fitness.png"
+            id="finance", label="Finance", icon_path="assets/icons/finance.png"
         ),
+        HabitCategory(id="social", label="Social", icon_path="assets/icons/social.png"),
         HabitCategory(
-            id="education",
-            label="Education",
-            icon_path="assets/icons/education.png"
-        ),
-        HabitCategory(
-            id="finance",
-            label="Finance",
-            icon_path="assets/icons/finance.png"
-        ),
-        HabitCategory(
-            id="social",
-            label="Social",
-            icon_path="assets/icons/social.png"
-        ),
-        HabitCategory(
-            id="spiritual",
-            label="Spiritual",
-            icon_path="assets/icons/spiritual.png"
+            id="spiritual", label="Spiritual", icon_path="assets/icons/spiritual.png"
         ),
     ]
-    
+
     # Add categories to the session
     for category in categories:
         session.add(category)
-    
+
     # Commit the changes
     session.commit()
     print(f"✅ Successfully added {len(categories)} sample categories.")
@@ -203,12 +182,12 @@ def main():
         admin_user=args.admin_user,
         admin_password=args.admin_password,
         host=args.host,
-        port=args.port
+        port=args.port,
     )
 
     # Step 2: Create tables in database
     init_db()
-    
+
     # Step 3: Add sample data
     add_sample_data()
 

@@ -3,8 +3,6 @@ import sys
 import argparse
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from sqlalchemy import text
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine.url import make_url
 
 # Add project root to sys.path to import app.*
@@ -27,17 +25,26 @@ from app.database import engine
 from app.database import Base  # if you want to drop using Base.metadata.drop_all()
 
 # DATABASE_URL: Should be aligned with your setup
-DATABASE_URL = "postgresql://lfl_hoan:lfl_123456@localhost:5432/lfl_db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+print("Loaded DATABASE_URL:", DATABASE_URL)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Drop database or tables.")
-    parser.add_argument('--admin-user', required=True, help='PostgreSQL admin username')
-    parser.add_argument('--admin-password', required=True, help='PostgreSQL admin password')
-    parser.add_argument('--host', default='localhost', help='Database host (default: localhost)')
-    parser.add_argument('--port', default='5432', help='Database port (default: 5432)')
-    parser.add_argument('--drop-type', choices=['database', 'tables'], required=True,
-                        help="Choose to drop the entire 'database' or just all 'tables'.")
+    parser.add_argument("--admin-user", required=True, help="PostgreSQL admin username")
+    parser.add_argument(
+        "--admin-password", required=True, help="PostgreSQL admin password"
+    )
+    parser.add_argument(
+        "--host", default="localhost", help="Database host (default: localhost)"
+    )
+    parser.add_argument("--port", default="5432", help="Database port (default: 5432)")
+    parser.add_argument(
+        "--drop-type",
+        choices=["database", "tables"],
+        required=True,
+        help="Choose to drop the entire 'database' or just all 'tables'.",
+    )
     return parser.parse_args()
 
 
@@ -47,24 +54,29 @@ def drop_database(admin_user, admin_password, host, port):
     db_name = url.database
 
     try:
-        print(f"🔗 Connecting to PostgreSQL {host}:{port} as admin '{admin_user}' to drop database '{db_name}'...")
+        print(
+            f"🔗 Connecting to PostgreSQL {host}:{port} as admin '{admin_user}' to drop database '{db_name}'..."
+        )
         conn = psycopg2.connect(
             host=host,
             port=port,
             user=admin_user,
             password=admin_password,
-            database="postgres"
+            database="postgres",
         )
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
 
         # Terminate active connections
         print(f"⚠️ Terminating all connections to '{db_name}'...")
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT pg_terminate_backend(pid)
             FROM pg_stat_activity
             WHERE datname = %s;
-        """, (db_name,))
+        """,
+            (db_name,),
+        )
 
         # Drop database
         cursor.execute(f"DROP DATABASE IF EXISTS {db_name};")
@@ -94,14 +106,14 @@ def drop_all_tables():
 def main():
     args = parse_args()
 
-    if args.drop_type == 'database':
+    if args.drop_type == "database":
         drop_database(
             admin_user=args.admin_user,
             admin_password=args.admin_password,
             host=args.host,
-            port=args.port
+            port=args.port,
         )
-    elif args.drop_type == 'tables':
+    elif args.drop_type == "tables":
         drop_all_tables()
 
     print("🎉 Drop operation completed!")
