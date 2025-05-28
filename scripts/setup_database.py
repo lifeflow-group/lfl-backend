@@ -142,26 +142,59 @@ def add_sample_categories(session):
 
     # Sample categories
     categories = [
-        HabitCategory(id="health", label="Health", icon_path="assets/icons/health.png"),
-        HabitCategory(id="work", label="Work", icon_path="assets/icons/work.png"),
+        HabitCategory(
+            id="health",
+            name="Health",
+            icon_path="assets/icons/health.png",
+            color_hex="#FF5733",
+        ),
+        HabitCategory(
+            id="work",
+            name="Work",
+            icon_path="assets/icons/work.png",
+            color_hex="#3498DB",
+        ),
         HabitCategory(
             id="personal_growth",
-            label="Personal Growth",
+            name="Personal Growth",
             icon_path="assets/icons/personal_growth.png",
-        ),
-        HabitCategory(id="hobby", label="Hobby", icon_path="assets/icons/hobby.png"),
-        HabitCategory(
-            id="fitness", label="Fitness", icon_path="assets/icons/fitness.png"
+            color_hex="#9B59B6",
         ),
         HabitCategory(
-            id="education", label="Education", icon_path="assets/icons/education.png"
+            id="hobby",
+            name="Hobby",
+            icon_path="assets/icons/hobby.png",
+            color_hex="#F1C40F",
         ),
         HabitCategory(
-            id="finance", label="Finance", icon_path="assets/icons/finance.png"
+            id="fitness",
+            name="Fitness",
+            icon_path="assets/icons/fitness.png",
+            color_hex="#2ECC71",
         ),
-        HabitCategory(id="social", label="Social", icon_path="assets/icons/social.png"),
         HabitCategory(
-            id="spiritual", label="Spiritual", icon_path="assets/icons/spiritual.png"
+            id="education",
+            name="Education",
+            icon_path="assets/icons/education.png",
+            color_hex="#E67E22",
+        ),
+        HabitCategory(
+            id="finance",
+            name="Finance",
+            icon_path="assets/icons/finance.png",
+            color_hex="#27AE60",
+        ),
+        HabitCategory(
+            id="social",
+            name="Social",
+            icon_path="assets/icons/social.png",
+            color_hex="#E74C3C",
+        ),
+        HabitCategory(
+            id="spiritual",
+            name="Spiritual",
+            icon_path="assets/icons/spiritual.png",
+            color_hex="#8E44AD",
         ),
     ]
 
