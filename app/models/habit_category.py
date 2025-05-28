@@ -8,7 +8,8 @@ class HabitCategory(Base):
     __tablename__ = "habit_categories"
 
     id = Column(String, primary_key=True, index=True, default=generate_uuid)
-    label = Column(String, nullable=False)
+    name = Column(String, nullable=False)
     icon_path = Column(String, nullable=True)
+    color_hex = Column(String, nullable=True)
 
     habits = relationship("Habit", back_populates="category")

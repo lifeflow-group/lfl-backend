@@ -3,8 +3,9 @@ from typing import Optional
 
 
 class HabitCategoryBase(BaseModel):
-    label: str
+    name: str
     icon_path: Optional[str] = Field(None, alias="iconPath")  # camelCase alias
+    color_hex: Optional[str] = Field(None, alias="colorHex")  # camelCase alias
 
     class Config:
         populate_by_name = True
