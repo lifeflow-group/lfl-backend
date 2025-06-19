@@ -109,8 +109,9 @@ def _create_suggestion_prompt(
         - **category** (HabitCategory): The category this habit belongs to, providing context for its purpose and relevance.  
             Each category has the following fields:  
             + **id** (string): Unique identifier for the habit category.  
-            + **label** (string): The display name of the category (e.g., "Health", "Work", "Fitness").  
+            + **name** (string): The display name of the category (e.g., "Health", "Work", "Fitness").  
             + **icon_path** (string, optional): Path to the icon representing the category.
+            + **color_hex** (string, optional): The hexadecimal color code for the category (e.g., "#FF5733").
         - **tracking_type** (string): Whether the habit is tracked by `COMPLETE` (done/not done) or `PROGRESS` (measurable value like steps, minutes, etc.).
         
         - **target_value** (integer, optional): The goal value for `PROGRESS`-based habits (e.g., 8 glasses of water, 30 minutes of exercise).
@@ -176,8 +177,9 @@ def _create_suggestion_prompt(
                     "name": "Drink Water",                  // Name of the habit (string)
                     "category": {{                          // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
                         "id": "health",                         // ID of the category
-                        "label": "Health",                      // Name of the category
-                        "iconPath": "assets/icons/health.png"   // Path to the category icon
+                        "name": "Health",                      // Name of the category
+                        "iconPath": "assets/icons/health.png", // Path to the category icon
+                        "colorHex": "#FF5733"                  // Hexadecimal color code for the category
                     }},
                     "repeatFrequency": "daily"             // How often the habit repeats (daily, weekly, monthly)
                     "startDate": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format
@@ -267,8 +269,9 @@ def _refine_suggestions_prompt(
                     "name": "Drink Water",                  // Name of the habit (string)
                     "category": {{                          // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
                         "id": "health",                         // ID of the category
-                        "label": "Health",                      // Name of the category
-                        "iconPath": "assets/icons/health.png"   // Path to the category icon
+                        "name": "Health",                      // Name of the category
+                        "iconPath": "assets/icons/health.png", // Path to the category icon
+                        "colorHex": "#FF5733"                  // Hexadecimal color code for the category
                     }},
                     "repeatFrequency": "daily"             // How often the habit repeats (daily, weekly, monthly)
                     "startDate": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format

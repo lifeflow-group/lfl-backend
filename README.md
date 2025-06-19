@@ -91,7 +91,10 @@ lfl_backend/
    GEMINI_API_KEY=your_gemini_api_key
    ```
 
-### Database Setup
+## Database Setup
+
+### Local PostgreSQL Setup
+
 1. Create PostgreSQL user and database:
    ```sh
    psql -U postgres
@@ -117,23 +120,85 @@ lfl_backend/
    \q
    ```
 
-3. Initialize the database:
+3. Environment Configuration for Local PostgreSQL
+Update your `.env` file with the local PostgreSQL connection string:
+
+```env
+DATABASE_URL=postgresql://lfl_user:lfl_password@localhost:5432/lfl_db
+```
+
+4. Initialize the database:
    ```sh
    python scripts/setup_database.py --admin-user postgres --admin-password your_password
    ```
 
-4. Dropping the Database
+5. Dropping the Database
 If you need to drop the database for any reason (e.g., to reset the database schema or start fresh), you can use the drop_database.py script.
 
-a. Run the drop_database.py script to drop the entire database:
+a. Run the drop_database.py script to drop all tables in the current database schema:
+   ```sh
+   python scripts/drop_database.py --admin-user postgres --admin-password your_password --drop-type tables
+   ```
+
+b. Run the drop_database.py script to drop the entire database:
    ```sh
    python scripts/drop_database.py --admin-user postgres --admin-password your_password --drop-type database
    ```
 
-b Run the drop_database.py script to drop all tables in the current database schema:
-   ```sh
-   python scripts/drop_database.py --admin-user postgres --admin-password your_password --drop-type tables
+
+
+### Neon Database Setup
+
+If you're using Neon Database (cloud PostgreSQL), follow these steps:
+
+#### Getting Connection Details
+
+1. **Log in to Neon**
+   - Go to [Neon Console](https://console.neon.tech/)
+   - Sign in to your account
+
+2. **Select Your Project**
+   - Choose the project you've created
+
+3. **Access Connection Details**
+   - Navigate to the "Connection Details" tab
+   - In the "Connection string" section, you'll see a string like:
+   ```bash
+   postgresql://your_user:your_password@ep-xxxx.ap-southeast-1.aws.neon.tech/neondb
    ```
+
+4. **Extract Connection Parameters**
+   From the connection string, identify:
+   - `admin_user` = your_user (Example: `neondb_owner`)
+   - `admin_password` = your_password (The string after the `:`)
+   - `host` = ep-xxxx.ap-southeast-1.aws.neon.tech
+   - `port` = 5432 (default)
+
+#### Initialize Neon Database
+
+Run the setup script with your Neon connection details:
+
+```sh
+python scripts/setup_database.py --admin-user your_admin_user --admin-password your_admin_password --host ep-xxx.ap-southeast-1.aws.neon.tech --port 5432
+```
+
+**Note:** Replace the connection parameters with your actual Neon database credentials.
+
+#### Environment Configuration for Neon
+
+Update your `.env` file with the Neon connection string:
+
+```env
+DATABASE_URL=postgresql://neondb_owner:npg_XsaRuQ3odqm2@ep-mute-water-a1f3qgwh-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+```
+
+#### Dropping the Neon Database
+
+Run the drop_database.py script to drop all tables in the current Neon database schema:
+   ```sh
+   python scripts/drop_database.py --admin-user your_admin_user --admin-password your_admin_password --host ep-xxx.ap-southeast-1.aws.neon.tech --port 5432 --drop-type tables
+
+**Note:** Replace the connection parameters with your actual Neon database credentials.
 
 ## Local Only
 ### Running the Application
