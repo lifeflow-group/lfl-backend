@@ -100,14 +100,14 @@ def _create_suggestion_prompt(
         raise TypeError("Type not serializable")
 
     prompt = f"""
-        You are an expert AI habit coach. Your task is to analyze the user's current habits and performance metrics, then generate personalized, actionable suggestions to help them improve their habits.
+        You are an expert AI habit coach. Your task is to analyze the user\'s current habits and performance metrics, then generate personalized, actionable suggestions to help them improve their habits.
 
         ### Analysis Period:
         - Start Date: {habitAnalysisInput.start_date.strftime('%Y-%m-%d')}
         - End Date: {habitAnalysisInput.end_date.strftime('%Y-%m-%d')}
 
         ### Data:
-        Here is the user's current habit data and performance metrics in JSON format:
+        Here is the user\'s current habit data and performance metrics in JSON format:
         {json.dumps([habit.model_dump() for habit in chunk_habits], indent=2, default=convert_datetime)}
 
         Each item in the list has the following fields:
@@ -143,7 +143,7 @@ def _create_suggestion_prompt(
             + **completion_rate** (float, optional): Percentage of time the habit was completed (0.0 - 1.0).
             + **average_progress** (float, optional): Average value recorded for `PROGRESS`-based habits.
             + **total_progress** (float, optional): Total accumulated progress for `PROGRESS`-based habits.
-            + **metric_description** (string, optional): A summary of the user's habit performance.
+            + **metric_description** (string, optional): A summary of the user\'s habit performance.
             + **metric_start_date** (ISO string, optional): The start date of the performance analysis period.
             + **metric_end_date** (ISO string, optional): The end date of the performance analysis period.
 
@@ -153,14 +153,14 @@ def _create_suggestion_prompt(
         
         {"" if not has_habits else """
         1. **Existing Habit Improvements (Maximum 2 suggestions)**
-           - Choose at most 2 of the user's existing habits that would benefit most from improvements.
+           - Choose at most 2 of the user\'s existing habits that would benefit most from improvements.
            - For each selected habit, create exactly ONE suggestion to optimize it.
-           - Focus on specific, actionable improvements to the habit's implementation or schedule.
+           - Focus on specific, actionable improvements to the habit\'s implementation or schedule.
            - IMPORTANT: Never create more than one suggestion for any single existing habit.
         
         2. **New Complementary Habits (At least 3 suggestions)**
-           - Create at least 3 suggestions for brand new habits that would complement the user's existing habits.
-           - These new habits should align with the user's apparent interests and goals.
+           - Create at least 3 suggestions for brand new habits that would complement the user\'s existing habits.
+           - These new habits should align with the user\'s apparent interests and goals.
            - Ensure the new habits are diverse and cover different aspects of wellbeing.
         """}
 
@@ -207,7 +207,7 @@ def _create_suggestion_prompt(
                     "id": "habit-550e8400-e29b-41d4-a716-446655440000",        // String: Unique IDs in the format "habit-uuid4()"
                     "name": "Drink Water",          // String: Name of the habit
                     "userId": "user_1",             // String: ID of the user
-                    "category": {{                  // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
+                    "category": {{                  // The category field *must* strictly be one of the following values, matching the user\'s habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
                         "id": "health",             // ID of the category
                         "name": "Health",           // Name of the category
                         "iconPath": "assets/icons/health.png", // Path to the category icon
@@ -318,7 +318,7 @@ def _refine_suggestions_prompt(
                     "id": "habit-550e8400-e29b-41d4-a716-446655440000",        // String: Unique IDs in the format "habit-uuid4()"
                     "name": "Drink Water",          // String: Name of the habit
                     "userId": "user_1",             // String: ID of the user
-                    "category": {{                  // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
+                    "category": {{                  // The category field *must* strictly be one of the following values, matching the user\'s habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
                         "id": "health",             // ID of the category
                         "name": "Health",           // Name of the category
                         "iconPath": "assets/icons/health.png", // Path to the category icon
