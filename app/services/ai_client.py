@@ -99,15 +99,44 @@ def _create_suggestion_prompt(
             return obj.isoformat()
         raise TypeError("Type not serializable")
 
+    existing_habit_block = (
+        """
+1. **Existing Habit Improvements (Maximum 2 suggestions)**
+   - Choose at most 2 of the user's existing habits that would benefit most from improvements.
+   - For each selected habit, create exactly ONE suggestion to optimize it.
+   - Focus on specific, actionable improvements to the habit's implementation or schedule.
+   - IMPORTANT: Never create more than one suggestion for any single existing habit.
+
+2. **New Complementary Habits (At least 3 suggestions)**
+   - Create at least 3 suggestions for brand new habits that would complement the user's existing habits.
+   - These new habits should align with the user's apparent interests and goals.
+   - Ensure the new habits are diverse and cover different aspects of wellbeing.
+"""
+        if has_habits
+        else ""
+    )
+
+    new_habit_block = (
+        """
+The 5 new habit suggestions should:
+- Cover diverse aspects of wellbeing (physical health, mental wellbeing, productivity, etc.)
+- Start simple and be easily achievable for a beginner
+- Include a mix of daily and weekly habits
+- Be specific and actionable with clear success criteria
+"""
+        if not has_habits
+        else ""
+    )
+
     prompt = f"""
-        You are an expert AI habit coach. Your task is to analyze the user\'s current habits and performance metrics, then generate personalized, actionable suggestions to help them improve their habits.
+        You are an expert AI habit coach. Your task is to analyze the user's current habits and performance metrics, then generate personalized, actionable suggestions to help them improve their habits.
 
         ### Analysis Period:
         - Start Date: {habitAnalysisInput.start_date.strftime('%Y-%m-%d')}
         - End Date: {habitAnalysisInput.end_date.strftime('%Y-%m-%d')}
 
         ### Data:
-        Here is the user\'s current habit data and performance metrics in JSON format:
+        Here is the user's current habit data and performance metrics in JSON format:
         {json.dumps([habit.model_dump() for habit in chunk_habits], indent=2, default=convert_datetime)}
 
         Each item in the list has the following fields:
@@ -150,27 +179,10 @@ def _create_suggestion_prompt(
 
         ### Instructions:
         {"Based on the user data, generate **5 personalized suggestions** as follows:" if has_habits else "Since the user doesn't have any habits yet, generate **5 brand new personalized habit suggestions** based on common effective habits:"}
-        
-        {"" if not has_habits else """
-        1. **Existing Habit Improvements (Maximum 2 suggestions)**
-           - Choose at most 2 of the user\'s existing habits that would benefit most from improvements.
-           - For each selected habit, create exactly ONE suggestion to optimize it.
-           - Focus on specific, actionable improvements to the habit\'s implementation or schedule.
-           - IMPORTANT: Never create more than one suggestion for any single existing habit.
-        
-        2. **New Complementary Habits (At least 3 suggestions)**
-           - Create at least 3 suggestions for brand new habits that would complement the user\'s existing habits.
-           - These new habits should align with the user\'s apparent interests and goals.
-           - Ensure the new habits are diverse and cover different aspects of wellbeing.
-        """}
 
-        {"" if has_habits else """
-        The 5 new habit suggestions should:
-        - Cover diverse aspects of wellbeing (physical health, mental wellbeing, productivity, etc.)
-        - Start simple and be easily achievable for a beginner
-        - Include a mix of daily and weekly habits
-        - Be specific and actionable with clear success criteria
-        """}
+        {existing_habit_block}
+
+        {new_habit_block}
 
         ### Categories of Suggestions:
         Your suggestions (whether improving existing habits or creating new ones) should fall into these categories:
