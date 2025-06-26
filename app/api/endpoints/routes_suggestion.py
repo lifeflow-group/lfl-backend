@@ -53,9 +53,6 @@ async def analyze_and_suggest(
     else:
         print(f"User {user.id} found.")
 
-    if not habitAnalysisInput.habits:
-        raise HTTPException(status_code=400, detail="No habits provided.")
-
     # 1. Calculate Performance Metrics from habits (Rule-Based or Pre-defined Logic)
     habitInputUpdate: HabitAnalysisInput = calculate_performance_metrics(
         habitAnalysisInput

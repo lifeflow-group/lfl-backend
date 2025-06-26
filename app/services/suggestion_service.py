@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.habit import Habit as HabitModel
-from app.models.habit_category import HabitCategory
+from app.models.category import Category
 from app.models.habit_series import HabitSeries as HabitSeriesModel
 from app.schemas.habit_analysis_input_schema import HabitAnalysisInput
 from app.schemas.suggestion_schema import SuggestionResponse
@@ -34,49 +34,61 @@ def save_suggestions(
     """
     Save generated suggestions to the database.
     For each suggestion:
-    1. Create a new Habit from suggestion.habit_data.
+    1. Create a new Habit from suggestion.habit.
     2. Create a new HabitSeries and link it to the Habit.
-    3. Update the HabitModel with the habit_series_id.
-    4. Save the Suggestion with the new habit_id.
+    3. Save the Suggestion with the new habit_id.
     """
     for suggestion in suggestions:
-        # Save the suggestion habit to the database
-        habit_data = suggestion.habit_data
+        # Extract habit data from suggestion and convert to dict
+        habit_data = suggestion.habit
+        if not habit_data:
+            continue  # Skip if no habit data
+
+        # Convert Pydantic model to dict
+        habit_dict = habit_data.model_dump()
+
+        # Now you can use .get() method
+        series_data = habit_dict.get("series")
 
         # 1. Create HabitModel first
         suggestion_habit = HabitModel(
-            # the id is auto-generated
-            name=habit_data.get("name"),
+            name=habit_dict.get("name"),
             user_id=user_id,
-            category_id=habit_data.get("category").get("id"),
-            start_date=habit_data.get("startDate"),
-            reminder_enabled=habit_data.get("reminderEnabled", False),
-            tracking_type=habit_data.get("trackingType"),
-            target_value=habit_data.get("targetValue"),
-            unit=habit_data.get("unit"),
+            category_id=(
+                habit_dict.get("category", {}).get("id")
+                if habit_dict.get("category")
+                else None
+            ),
+            date=habit_dict.get("date"),
+            reminder_enabled=habit_dict.get("reminderEnabled", False),
+            tracking_type=habit_dict.get("trackingType"),
+            target_value=habit_dict.get("targetValue"),
+            current_value=habit_dict.get("currentValue", 0),
+            is_completed=habit_dict.get("isCompleted", False),
+            unit=habit_dict.get("unit"),
         )
 
         db.add(suggestion_habit)
-        db.flush()
+        db.flush()  # Get the generated ID
 
-        # 2. Create HabitSeries and link it to HabitModel
-        habit_series = HabitSeriesModel(
-            # the id is auto-generated
-            habit_id=suggestion_habit.id,
-            start_date=habit_data.get("startDate"),
-            until_date=habit_data.get("untilDate"),
-            repeat_frequency=habit_data.get("repeatFrequency"),
-        )
-        db.add(habit_series)
-        db.flush()  # Retrieve habit_series.id after insert
+        # 2. Create HabitSeries and link it to HabitModel (if series data exists)
+        if series_data:
+            habit_series = HabitSeriesModel(
+                user_id=user_id,
+                habit_id=suggestion_habit.id,
+                start_date=series_data.get("startDate"),
+                until_date=series_data.get("untilDate"),
+                repeat_frequency=series_data.get("repeatFrequency"),
+            )
+            db.add(habit_series)
+            db.flush()  # Get the generated ID
 
-        # 3. Update HabitModel with habit_series_id
-        suggestion_habit.habit_series_id = habit_series.id
-        db.flush()  # SQLAlchemy automatically updates the object in the database
+            # Update habit with habit_series_id reference
+            suggestion_habit.habit_series_id = habit_series.id
+            db.flush()
 
-        # 4. Save the suggestion to the database
-        suggestions = SuggestionModel(
-            # the id is auto-generated
+        # 3. Save the suggestion to the database
+        db_suggestion = SuggestionModel(
             user_id=user_id,
             habit_id=suggestion_habit.id,
             title=suggestion.title,
@@ -84,8 +96,9 @@ def save_suggestions(
             created_at=suggestion.created_at,
         )
 
-        db.add(suggestions)
+        db.add(db_suggestion)
 
+    # Commit all changes at once
     db.commit()
 
 
@@ -96,9 +109,6 @@ async def generate_and_save_suggestions(
     """
     Generate suggestions and save them to the database.
     """
-    habits = habitAnalysisInput.habits
-    if not habits:
-        raise ValueError("Habits list cannot be empty to determine user_id.")
 
     user_id = habitAnalysisInput.user_id
     suggestions: List[SuggestionResponse] = []
@@ -182,11 +192,7 @@ def get_suggestion_by_user(
             return None
 
         # Fetch category
-        category = (
-            db.query(HabitCategory)
-            .filter(HabitCategory.id == habit.category_id)
-            .first()
-        )
+        category = db.query(Category).filter(Category.id == habit.category_id).first()
 
         # Fetch HabitSeries
         habit_series = (
@@ -198,26 +204,52 @@ def get_suggestion_by_user(
         return {
             "id": habit.id,
             "name": habit.name,
+            "userId": user_id,  # Thêm userId từ tham số hoặc từ habit
             "category": (
                 {
                     "id": category.id if category else None,
-                    "label": category.label if category else None,
+                    "name": (
+                        category.name if category else None
+                    ),  # Đổi từ label sang name
                     "iconPath": category.icon_path if category else None,
+                    "colorHex": (
+                        category.color_hex if category else "#000000"
+                    ),  # Thêm colorHex
                 }
                 if category
                 else None
             ),
-            "reminderEnabled": habit.reminder_enabled,
-            "trackingType": getattr(habit.tracking_type, "value", None),
-            "repeatFrequency": habit_series.repeat_frequency if habit_series else None,
-            "startDate": habit.start_date.isoformat() if habit.start_date else None,
-            "untilDate": (
-                habit_series.until_date.isoformat()
-                if habit_series and habit_series.until_date
+            "date": habit.date.isoformat() if habit.date else None,
+            "series": (
+                {
+                    "id": habit_series.id if habit_series else None,
+                    "userId": user_id,
+                    "habitId": habit.id,
+                    "startDate": (
+                        habit_series.start_date.isoformat() if habit_series else None
+                    ),
+                    "untilDate": (
+                        habit_series.until_date.isoformat()
+                        if habit_series and habit_series.until_date
+                        else None
+                    ),
+                    "repeatFrequency": (
+                        habit_series.repeat_frequency if habit_series else None
+                    ),
+                }
+                if habit_series
                 else None
             ),
+            "reminderEnabled": habit.reminder_enabled,
+            "trackingType": getattr(habit.tracking_type, "value", None),
             "targetValue": habit.target_value,
+            "currentValue": (
+                habit.current_value if hasattr(habit, "current_value") else 0
+            ),
             "unit": habit.unit,
+            "isCompleted": (
+                habit.is_completed if hasattr(habit, "is_completed") else False
+            ),
         }
 
     return [
@@ -227,7 +259,7 @@ def get_suggestion_by_user(
             title=s.title,
             description=s.description,
             created_at=s.created_at,
-            habit_data=serialize_habit(habit_map.get(s.habit_id)),
+            habit=serialize_habit(habit_map.get(s.habit_id)),
         )
         for s in suggestions
     ]

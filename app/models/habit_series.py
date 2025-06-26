@@ -10,6 +10,7 @@ class HabitSeries(Base):
     __tablename__ = "habit_series"
 
     id = Column(String, primary_key=True, index=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     habit_id = Column(String, ForeignKey("habits.id"), nullable=False)
     start_date = Column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
@@ -19,6 +20,7 @@ class HabitSeries(Base):
         Enum(RepeatFrequency), nullable=False, default=RepeatFrequency.DAILY
     )
 
-    # Relationship
+    # Relationships
+    user = relationship("User", back_populates="habit_series")
     habit = relationship("Habit", back_populates="habit_series")
     habit_exceptions = relationship("HabitException", back_populates="habit_series")

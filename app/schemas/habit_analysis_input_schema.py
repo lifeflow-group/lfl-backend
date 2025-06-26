@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
-from app.schemas.habit_category_schema import HabitCategoryResponse
+from app.schemas.category_schema import CategoryResponse
 from app.schemas.habit_exception_schema import HabitExceptionResponse
 from app.models.habit import RepeatFrequency, TrackingType
 from app.schemas.performance_metric_schema import PerformanceMetricResponse
@@ -12,7 +12,7 @@ class HabitData(BaseModel):
 
     id: str = Field(..., alias="id")  # Can use alias here if needed
     name: str = Field(..., alias="name")
-    category: HabitCategoryResponse = Field(..., alias="category")
+    category: CategoryResponse = Field(..., alias="category")
     tracking_type: TrackingType = Field(
         ..., alias="trackingType"
     )  # Example camelCase alias

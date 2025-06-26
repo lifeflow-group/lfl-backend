@@ -21,5 +21,5 @@ class HabitException(Base):
     current_value = Column(Integer, nullable=True)
     is_completed = Column(Boolean, nullable=True)
 
-    # Relationship
+    # Relationships
     habit_series = relationship("HabitSeries", back_populates="habit_exceptions")

@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional
+
+from app.schemas.habit_schema import HabitResponse
 
 
 class SuggestionBase(BaseModel):
@@ -10,16 +12,14 @@ class SuggestionBase(BaseModel):
 
 class SuggestionCreate(SuggestionBase):
     user_id: str
-    habit_data: Optional[Dict] = None  # Raw JSON data (optional)
+    habit: Optional[HabitResponse] = None  # Raw JSON data (optional)
 
 
 class SuggestionResponse(SuggestionBase):
     id: str
     user_id: str = Field(None, alias="userId")
-    habit_data: Optional[Dict] = Field(None, alias="habitData")
+    habit: Optional[HabitResponse] = None
     created_at: datetime = Field(None, alias="createdAt")
-    is_viewed: bool = Field(False, alias="isViewed")
-    is_implemented: bool = Field(False, alias="isImplemented")
 
     class Config:
         populate_by_name = True

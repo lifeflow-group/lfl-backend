@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
-from app.api.endpoints import routes_habit, routes_suggestion
+from app.api.endpoints import routes_habit, routes_suggestion, routes_habit_plan
 from app.database import engine, Base
 from app.models import *
+from fastapi.staticfiles import StaticFiles
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -39,3 +40,7 @@ async def favicon():
 # Register routers
 app.include_router(routes_suggestion.router)
 app.include_router(routes_habit.router)
+app.include_router(routes_habit_plan.router)
+
+# Mount static directory
+app.mount("/static", StaticFiles(directory="static"), name="static")

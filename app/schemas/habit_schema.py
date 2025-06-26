@@ -1,43 +1,38 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
-from app.models.habit import RepeatFrequency, TrackingType
-from app.schemas.habit_category_schema import HabitCategoryResponse
+from app.models.habit import TrackingType
+from app.schemas.category_schema import CategoryResponse
+from app.schemas.habit_series_schema import HabitSeriesResponse
 
 
 class HabitBase(BaseModel):
     name: str
-    category_id: str
-    habit_series_id: Optional[str]
-    tracking_type: TrackingType = TrackingType.COMPLETE
-    target_value: Optional[int]
-    unit: Optional[str]
-    reminder_enabled: bool = False
+    tracking_type: TrackingType = Field(
+        default=TrackingType.COMPLETE, alias="trackingType"
+    )
+    target_value: Optional[int] = Field(default=None, alias="targetValue")
+    unit: Optional[str] = None
+    reminder_enabled: bool = Field(default=False, alias="reminderEnabled")
+    current_value: Optional[int] = Field(default=None, alias="currentValue")
+    is_completed: Optional[bool] = Field(default=None, alias="isCompleted")
+    date: datetime
+
+    class Config:
+        populate_by_name = True
+        from_attributes = True
 
 
 class HabitCreate(HabitBase):
     pass
 
 
-class HabitUpdate(BaseModel):
-    name: Optional[str]
-    category_id: Optional[str]
-    habit_series_id: Optional[str]
-    tracking_type: Optional[TrackingType]
-    target_value: Optional[int]
-    unit: Optional[str]
-    reminder_enabled: Optional[bool]
-
-
 class HabitResponse(HabitBase):
     id: str
-    user_id: str
-    category: HabitCategoryResponse
-    current_value: Optional[int]
-    is_completed: Optional[bool]
-    start_date: datetime
-    created_at: datetime
-    updated_at: datetime
+    user_id: str = Field(alias="userId")
+    category: CategoryResponse
+    habit_series: Optional[HabitSeriesResponse] = Field(default=None, alias="series")
 
     class Config:
+        populate_by_name = True
         from_attributes = True
