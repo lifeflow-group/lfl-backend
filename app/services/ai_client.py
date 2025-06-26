@@ -11,8 +11,6 @@ from google.generativeai import GenerativeModel
 from dotenv import load_dotenv
 
 from app.schemas.habit_analysis_input_schema import HabitAnalysisInput
-from app.schemas.habit_schema import HabitResponse
-from app.schemas.performance_metric_schema import PerformanceMetricResponse
 from app.schemas.suggestion_schema import SuggestionResponse
 
 load_dotenv()
@@ -45,9 +43,17 @@ async def get_ai_suggestions(
     model = genai.GenerativeModel(GEMINI_MODEL)
     habits = habitAnalysisInput.habits
 
+    # Handle the case when there are no habits
+    if len(habits) == 0:
+        # Call API with empty habits list to get starter suggestions
+        prompt = _create_suggestion_prompt(habitAnalysisInput, 0, chunk_size)
+        response = await async_generate_content(prompt, model)
+        suggestions = _parse_ai_response(response.text)
+        return suggestions
+
+    # If there are habits, proceed with normal chunking logic
     # 1. Handle chunk splitting
     for i in range(0, len(habits), chunk_size):
-
         prompt = _create_suggestion_prompt(habitAnalysisInput, i, chunk_size)
 
         # Await for the asynchronous function
@@ -85,6 +91,7 @@ def _create_suggestion_prompt(
     chunk_size: int,
 ) -> str:
     chunk_habits = habitAnalysisInput.habits[i : i + chunk_size]
+    has_habits = len(chunk_habits) > 0
 
     # Convert datetime to string before serialization
     def convert_datetime(obj):
@@ -106,7 +113,7 @@ def _create_suggestion_prompt(
         Each item in the list has the following fields:
         - **id** (string): Unique identifier for the habit.
         - **name** (string): Name of the habit.
-        - **category** (HabitCategory): The category this habit belongs to, providing context for its purpose and relevance.  
+        - **category** (Category): The category this habit belongs to, providing context for its purpose and relevance.  
             Each category has the following fields:  
             + **id** (string): Unique identifier for the habit category.  
             + **name** (string): The display name of the category (e.g., "Health", "Work", "Fitness").  
@@ -142,55 +149,97 @@ def _create_suggestion_prompt(
 
 
         ### Instructions:
-        Based on the data above, generate **5 personalized suggestions**. Each suggestion should belong to **one** of the following categories:
+        {"Based on the user data, generate **5 personalized suggestions** as follows:" if has_habits else "Since the user doesn't have any habits yet, generate **5 brand new personalized habit suggestions** based on common effective habits:"}
+        
+        {"" if not has_habits else """
+        1. **Existing Habit Improvements (Maximum 2 suggestions)**
+           - Choose at most 2 of the user's existing habits that would benefit most from improvements.
+           - For each selected habit, create exactly ONE suggestion to optimize it.
+           - Focus on specific, actionable improvements to the habit's implementation or schedule.
+           - IMPORTANT: Never create more than one suggestion for any single existing habit.
+        
+        2. **New Complementary Habits (At least 3 suggestions)**
+           - Create at least 3 suggestions for brand new habits that would complement the user's existing habits.
+           - These new habits should align with the user's apparent interests and goals.
+           - Ensure the new habits are diverse and cover different aspects of wellbeing.
+        """}
 
-        1. **Optimize Current Habits**
-        - Help users adjust or improve existing habits (time, frequency, method...).
-        - Provide specific, easy-to-implement solutions to maintain habits more effectively.
+        {"" if has_habits else """
+        The 5 new habit suggestions should:
+        - Cover diverse aspects of wellbeing (physical health, mental wellbeing, productivity, etc.)
+        - Start simple and be easily achievable for a beginner
+        - Include a mix of daily and weekly habits
+        - Be specific and actionable with clear success criteria
+        """}
 
-        2. **Motivation - Encouragement**
-        - Provide encouragement based on achievements or progress.
-        - Create small challenges or encourage users to reward themselves when completing goals.
+        ### Categories of Suggestions:
+        Your suggestions (whether improving existing habits or creating new ones) should fall into these categories:
 
-        3. **Habit Expansion**
-        - Suggest developing existing habits to a higher level or combining with related habits to increase effectiveness.
-
-        4. **Smart Reminders**
-        - Suggest additional reminders, notifications, or incorporating habits into personal schedules (habit stacking).
-        - Suggest optimal time frames based on performance.
-
-        5. **Personalization Based on Lifestyle / Interests**
-        - Create suggestions that match the user's interests, schedule, and personal lifestyle.
-        - Example: if the user enjoys music, suggest combining listening to music while performing the habit.
+        1. **Physical Wellbeing**
+        - Exercise, nutrition, hydration, sleep, etc.
+        
+        2. **Mental Wellbeing**
+        - Meditation, mindfulness, stress management, etc.
+        
+        3. **Productivity & Growth**
+        - Learning, organization, focus improvement, etc.
+        
+        4. **Social & Emotional Health**
+        - Connection, communication, gratitude practices, etc.
+        
+        5. **Environmental & Lifestyle**
+        - Sustainability practices, space organization, screen time management, etc.
 
         ### Notes:
         - Ensure all suggestions are **personalized** based on user data.
         - Each suggestion must have a **clear benefit** and be **easy to understand**.
+        - Be specific about timing, frequency, and implementation.
 
         ### Output format:
         Return suggestions in JSON format like this example:
         [
             {{
+                "id": "suggestion-550e8400-e29b-41d4-a716-446655440000", // String: Unique IDs in the format "suggestion-uuid4()"
+                "userId": "user_1",             // String: ID of the user
                 "title": "Stay Hydrated Regularly", // Motivating and clear title
                 "description": "Try setting reminders to drink water every 2 hours. You can place a water bottle on your desk as a visual cue.", // String: A concise action-oriented suggestion, followed by an explanation or two of why this action is useful or beneficial.
-                "habitData": {{
-                    "name": "Drink Water",                  // Name of the habit (string)
-                    "category": {{                          // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
-                        "id": "health",                         // ID of the category
-                        "name": "Health",                      // Name of the category
+                "habit": {{
+                    "id": "habit-550e8400-e29b-41d4-a716-446655440000",        // String: Unique IDs in the format "habit-uuid4()"
+                    "name": "Drink Water",          // String: Name of the habit
+                    "userId": "user_1",             // String: ID of the user
+                    "category": {{                  // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
+                        "id": "health",             // ID of the category
+                        "name": "Health",           // Name of the category
                         "iconPath": "assets/icons/health.png", // Path to the category icon
-                        "colorHex": "#FF5733"                  // Hexadecimal color code for the category
+                        "colorHex": "#FF5733"       // Hexadecimal color code for the category
                     }},
-                    "repeatFrequency": "daily"             // How often the habit repeats (daily, weekly, monthly)
-                    "startDate": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format
-                    "untilDate": "2024-06-01T00:00:00Z",   // End date, or null if it continues indefinitely
-                    "reminderEnabled": true,               // Boolean: whether reminders are enabled
-                    "trackingType": "complete",            // Tracking type (complete, progress)
-                    "targetValue": 8,                      // target value (integer, if Tracking type is progress)
-                    "unit": "cups",                         // Unit of measurement (string, if Tracking type is progress)
+                    "date": "2024-03-01T00:00:00Z", // DateTime: creation date (matches startDate in series)
+                    "series": {{                    // HabitSeries object (nullable)
+                        "id": "series-550e8400-e29b-41d4-a716-446655440000",         // String: Unique IDs in the format "habit-uuid4()"
+                        "userId": "user_1",         // String: User ID
+                        "habitId": "habit-550e8400-e29b-41d4-a716-446655440000", // String: Link to original habit
+                        "startDate": "2024-03-01T00:00:00Z", // DateTime: Start date of series
+                        "untilDate": "2024-06-01T00:00:00Z", // DateTime: End date (nullable)
+                        "repeatFrequency": "daily"  // RepeatFrequency enum value
+                    }},
+                    "reminderEnabled": true,        // Boolean: whether reminders are enabled
+                    "trackingType": "complete",     // TrackingType enum value (complete, progress)
+                    "targetValue": 8,               // Integer: target value (nullable)
+                    "currentValue": 3,              // Integer: current progress value (nullable)
+                    "unit": "cups",                 // String: unit of measurement (nullable)
+                    "isCompleted": false            // Boolean: completion status (nullable)
                 }},
             }},
+            // ... more suggestions
         ]
+
+        IMPORTANT: 
+        1. For existing habit improvements, use the actual habit ID and details from the user data.
+        2. For new habits, create new unique IDs in the format "habit-uuid4()". 
+            For example: "habit-550e8400-e29b-41d4-a716-446655440000"
+        3. For new series, create new unique IDs in the format "series-uuid4()".
+            For example: "series-550e8400-e29b-41d4-a716-446655440000"
+        4. The category field *must* strictly be one of the following values: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
         """
     return prompt
 
@@ -214,10 +263,8 @@ def _parse_ai_response(response_text: str) -> List[SuggestionResponse]:
                 icon=item.get("icon", "💡"),
                 title=item.get("title", "Habit Suggestion"),
                 description=item.get("description", ""),
-                habit_data=item.get("habitData"),
+                habit=item.get("habit"),
                 created_at=datetime.now(),
-                is_viewed=False,
-                is_implemented=False,
             )
             suggestions.append(suggestion)
 
@@ -255,34 +302,55 @@ def _refine_suggestions_prompt(
         ### VERY IMPORTANT:
         - DO NOT remove or nullify any fields.
         - KEEP every field in the original suggestion objects exactly as they are, including:
-            - `habitData` (even if it contains nested objects)
+            - `habit` (even if it contains nested objects)
 
         ### Output format:
         Return ONLY a **JSON array** of full suggestion objects, **without changing any field names**.  
-        Keep the field `habitData` as it is, and do not replace it with anything else.
+        Keep the field `habit` as it is, and do not replace it with anything else.
         For example:
         [
             {{
+                "id": "suggestion-550e8400-e29b-41d4-a716-446655440000", // String: Unique IDs in the format "suggestion-uuid4()"
+                "userId": "user_1",             // String: ID of the user
                 "title": "Stay Hydrated Regularly", // Motivating and clear title
                 "description": "Try setting reminders to drink water every 2 hours. You can place a water bottle on your desk as a visual cue.", // String: A concise action-oriented suggestion, followed by an explanation or two of why this action is useful or beneficial.
-                "habitData": {{
-                    "name": "Drink Water",                  // Name of the habit (string)
-                    "category": {{                          // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
-                        "id": "health",                         // ID of the category
-                        "name": "Health",                      // Name of the category
+                "habit": {{
+                    "id": "habit-550e8400-e29b-41d4-a716-446655440000",        // String: Unique IDs in the format "habit-uuid4()"
+                    "name": "Drink Water",          // String: Name of the habit
+                    "userId": "user_1",             // String: ID of the user
+                    "category": {{                  // The category field *must* strictly be one of the following values, matching the user's habit or context: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
+                        "id": "health",             // ID of the category
+                        "name": "Health",           // Name of the category
                         "iconPath": "assets/icons/health.png", // Path to the category icon
-                        "colorHex": "#FF5733"                  // Hexadecimal color code for the category
+                        "colorHex": "#FF5733"       // Hexadecimal color code for the category
                     }},
-                    "repeatFrequency": "daily"             // How often the habit repeats (daily, weekly, monthly)
-                    "startDate": "2024-03-01T00:00:00Z",   // Start date in ISO 8601 format
-                    "untilDate": "2024-06-01T00:00:00Z",   // End date, or null if it continues indefinitely
-                    "reminderEnabled": true,               // Boolean: whether reminders are enabled
-                    "trackingType": "complete",            // Tracking type (complete, progress)
-                    "targetValue": 8,                      // target value (integer, if Tracking type is progress)
-                    "unit": "cups",                         // Unit of measurement (string, if Tracking type is progress)
+                    "date": "2024-03-01T00:00:00Z", // DateTime: creation date (matches startDate in series)
+                    "series": {{                    // HabitSeries object (nullable)
+                        "id": "series-550e8400-e29b-41d4-a716-446655440000",         // String: Unique IDs in the format "habit-uuid4()"
+                        "userId": "user_1",         // String: User ID
+                        "habitId": "habit-550e8400-e29b-41d4-a716-446655440000", // String: Link to original habit
+                        "startDate": "2024-03-01T00:00:00Z", // DateTime: Start date of series
+                        "untilDate": "2024-06-01T00:00:00Z", // DateTime: End date (nullable)
+                        "repeatFrequency": "daily"  // RepeatFrequency enum value
+                    }},
+                    "reminderEnabled": true,        // Boolean: whether reminders are enabled
+                    "trackingType": "complete",     // TrackingType enum value (complete, progress)
+                    "targetValue": 8,               // Integer: target value (nullable)
+                    "currentValue": 3,              // Integer: current progress value (nullable)
+                    "unit": "cups",                 // String: unit of measurement (nullable)
+                    "isCompleted": false            // Boolean: completion status (nullable)
                 }},
             }},
+            // ... more suggestions
         ]
+
+        IMPORTANT: 
+        1. For existing habit improvements, use the actual habit ID and details from the user data.
+        2. For new habits, create new unique IDs in the format "habit-uuid4()". 
+            For example: "habit-550e8400-e29b-41d4-a716-446655440000"
+        3. For new series, create new unique IDs in the format "series-uuid4()".
+            For example: "series-550e8400-e29b-41d4-a716-446655440000"
+        4. The category field *must* strictly be one of the following values: "health", "work", "personal_growth", "hobby", "fitness", "education", "finance", "social", "spiritual"
         """
 
     return prompt

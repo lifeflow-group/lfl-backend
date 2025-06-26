@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 
-class HabitCategoryBase(BaseModel):
+class CategoryBase(BaseModel):
     name: str
     icon_path: Optional[str] = Field(None, alias="iconPath")  # camelCase alias
     color_hex: Optional[str] = Field(None, alias="colorHex")  # camelCase alias
@@ -11,11 +11,11 @@ class HabitCategoryBase(BaseModel):
         populate_by_name = True
 
 
-class HabitCategoryCreate(HabitCategoryBase):
+class CategoryCreate(CategoryBase):
     pass
 
 
-class HabitCategoryResponse(HabitCategoryBase):
+class CategoryResponse(CategoryBase):
     id: str
 
     class Config:

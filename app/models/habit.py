@@ -23,10 +23,8 @@ class Habit(Base):
     id = Column(String, primary_key=True, index=True, default=generate_uuid)
     name = Column(String, nullable=False)
     user_id = Column(String, ForeignKey("users.id"))
-    category_id = Column(String, ForeignKey("habit_categories.id"))
-    start_date = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
-    )
+    category_id = Column(String, ForeignKey("categories.id"))
+    date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     habit_series_id = Column(String, nullable=True)
     reminder_enabled = Column(Boolean, default=False, nullable=False)
     tracking_type = Column(
@@ -37,9 +35,9 @@ class Habit(Base):
     current_value = Column(Integer, nullable=True)
     is_completed = Column(Boolean, nullable=True)
 
-    # relationships
+    # Relationships
     user = relationship("User", back_populates="habits")
-    category = relationship("HabitCategory")
+    category = relationship("Category", back_populates="habits")
     performance_metrics = relationship("PerformanceMetric", back_populates="habit")
+    habit_series = relationship("HabitSeries", back_populates="habit", uselist=False)
     suggestions = relationship("Suggestion", back_populates="habit")
-    habit_series = relationship("HabitSeries", back_populates="habit")
